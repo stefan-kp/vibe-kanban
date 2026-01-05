@@ -37,10 +37,14 @@ RUN npm install -g pnpm && pnpm install
 COPY . .
 
 # Build application
-RUN npm run generate-types
+# Generate types (uses debug build), then clean up to save disk space
+RUN npm run generate-types && rm -rf target/debug
+
 # Increase Node memory for frontend build
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN cd frontend && pnpm run build
+
+# Build release binary
 RUN cargo build --release --bin server
 
 # Runtime stage - use Node.js for CLI tools
