@@ -1,0 +1,43 @@
+# Sample Docker Compose for vibe-kanban deployment
+# Copy this file to docker-compose.yml and adjust paths as needed
+#
+# Usage:
+#   cp docker-compose.sample.yml docker-compose.yml
+#   # Edit paths below
+#   docker compose pull
+#   docker compose up -d
+
+services:
+  vibe-kanban:
+    image: ghcr.io/stefan-kp/vibe-kanban:latest
+    container_name: vibe-kanban
+    restart: unless-stopped
+    ports:
+      - "3029:3000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3000
+    volumes:
+      # Your local repositories - adjust this path
+      - ~/Documents/repos:/repos:rw
+
+      # Inherit Claude credentials from host (read-only for security)
+      # This allows vibe-kanban to use your existing Claude authentication
+      - ~/.claude:/home/appuser/.claude:ro
+
+      # Optional: Codex credentials
+      # - ~/.codex:/home/appuser/.codex:ro
+
+      # Optional: Gemini credentials
+      # - ~/.config/gemini:/home/appuser/.gemini:ro
+
+    # For interactive shell access (docker exec -it vibe-kanban bash)
+    stdin_open: true
+    tty: true
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 -O /dev/null http://localhost:3000 || exit 0"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3

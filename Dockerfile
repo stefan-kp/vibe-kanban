@@ -38,29 +38,42 @@ COPY . .
 
 # Build application
 RUN npm run generate-types
+# Increase Node memory for frontend build
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN cd frontend && pnpm run build
 RUN cargo build --release --bin server
 
-# Runtime stage
-FROM alpine:latest AS runtime
+# Runtime stage - use Node.js for CLI tools
+FROM node:24-alpine AS runtime
 
-# Install runtime dependencies
+# Install runtime dependencies (python3 + build-base needed for gemini-cli native modules)
 RUN apk add --no-cache \
     ca-certificates \
     tini \
     libgcc \
-    wget
+    wget \
+    git \
+    bash \
+    openssh-client \
+    python3 \
+    build-base
 
 # Create app user for security
 RUN addgroup -g 1001 -S appgroup && \
-    adduser -u 1001 -S appuser -G appgroup
+    adduser -u 1001 -S appuser -G appgroup -h /home/appuser
 
 # Copy binary from builder
 COPY --from=builder /app/target/release/server /usr/local/bin/server
 
-# Create repos directory and set permissions
-RUN mkdir -p /repos && \
-    chown -R appuser:appgroup /repos
+# Create directories and set permissions
+RUN mkdir -p /repos /home/appuser/.claude /home/appuser/.codex /home/appuser/.gemini && \
+    chown -R appuser:appgroup /repos /home/appuser
+
+# Install Coding Agent CLIs globally
+RUN npm install -g \
+    @anthropic-ai/claude-code \
+    @openai/codex \
+    @google/gemini-cli
 
 # Switch to non-root user
 USER appuser
@@ -68,6 +81,7 @@ USER appuser
 # Set runtime environment
 ENV HOST=0.0.0.0
 ENV PORT=3000
+ENV HOME=/home/appuser
 EXPOSE 3000
 
 # Set working directory
